@@ -22,7 +22,9 @@ type CreateKeyResponse struct {
 // healthHandler é um simples endpoint de verificação de saúde
 func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+		log.Printf("Erro ao codificar resposta: %v", err)
+	}
 }
 
 // validateKeyHandler verifica se uma chave de API (enviada via Header) é válida
@@ -51,7 +53,9 @@ func (a *App) validateKeyHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Chave válida
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Chave válida"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Chave válida"}); err != nil {
+		log.Printf("Erro ao codificar resposta: %v", err)
+	}
 }
 
 // createKeyHandler cria uma nova chave de API
@@ -86,7 +90,6 @@ func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 		"INSERT INTO api_keys (name, key_hash) VALUES ($1, $2) RETURNING id",
 		req.Name, newKeyHash,
 	).Scan(&newID)
-
 	if err != nil {
 		log.Printf("Erro ao salvar a chave no banco: %v", err)
 		http.Error(w, "Erro ao salvar a chave", http.StatusInternalServerError)
@@ -95,11 +98,13 @@ func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Nova chave criada com sucesso (ID: %d, Name: %s)", newID, req.Name)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(CreateKeyResponse{
+	if err := json.NewEncoder(w).Encode(CreateKeyResponse{
 		Name:    req.Name,
 		Key:     newKey, // Retorna a chave em texto plano pela última vez
 		Message: "Guarde esta chave com segurança! Você não poderá vê-la novamente.",
-	})
+	}); err != nil {
+		log.Printf("Erro ao codificar resposta: %v", err)
+	}
 }
 
 // --- Middleware ---
@@ -114,6 +119,7 @@ func (a *App) masterKeyAuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Acesso não autorizado", http.StatusForbidden)
 			return
 		}
+
 		// Se a chave for válida, continua para o handler principal
 		next.ServeHTTP(w, r)
 	})
